@@ -1,1 +1,172 @@
-local Services = { Players = game:GetService('Players'), ReplicatedStorage = game:GetService('ReplicatedStorage'), RunService = game:GetService('RunService'), UserInputService = game:GetService('UserInputService'), TweenService = game:GetService('TweenService'), HttpService = game:GetService('HttpService'), Chat = game:GetService('Chat')}local Players = Services.Playerslocal ReplicatedStorage = Services.ReplicatedStoragelocal RunService = Services.RunServicelocal UserInputService = Services.UserInputServicelocal TweenService = Services.TweenServicelocal HttpService = Services.HttpServicepcall(function() setthreadidentity(2)end)-- COMPREHENSIVE HOOKS FOR FAKE PLAYERS - MUST BE FIRSTlocal fakePlayerIds = {}_G.fakePlayerIds = fakePlayerIds-- Hook SettingsHelper early with better fake player detectiontask.spawn(function() task.wait(0.1) local SettingsHelper = require(ReplicatedStorage:WaitForChild('Fsys')).load('SettingsHelper') local original_get_setting_server = SettingsHelper.get_setting_server SettingsHelper.get_setting_server = function(player, settingName, ...) if player and player.UserId then if fakePlayerIds[player.UserId] then return false end if not Players:GetPlayerByUserId(player.UserId) then return false end end local args = { ... } local success, result = pcall(function() return original_get_setting_server(player, settingName, table.unpack(args)) end) if success then return result else return false end endend)-- Hook FamilyHelper earlytask.spawn(function() task.wait(0.1) local FamilyHelper = require(ReplicatedStorage:WaitForChild('Fsys')).load('FamilyHelper') local original_are_friends_family = FamilyHelper.are_friends_family local original_is_my_friend_or_family = FamilyHelper.is_my_friend_or_family local original_are_family_because_friends = FamilyHelper.are_family_because_friends local original_is_my_family_because_friend = FamilyHelper.is_my_family_because_friend FamilyHelper.are_friends_family = function(player1, player2) if player1 and player2 and (fakePlayerIds[player1.UserId] or fakePlayerIds[player2.UserId]) then return false end return original_are_friends_family(player1, player2) end FamilyHelper.is_my_friend_or_family = function(player) if player and fakePlayerIds[player.UserId] then return false end return original_is_my_friend_or_family(player) end FamilyHelper.are_family_because_friends = function(player1, player2) if player1 and player2 and (fakePlayerIds[player1.UserId] or fakePlayerIds[player2.UserId]) then return false end return original_are_family_because_friends(player1, player2) end FamilyHelper.is_my_family_because_friend = function(player) if player and fakePlayerIds[player.UserId] then return false end return original_is_my_family_because_friend(player) endend)local Fsys = require(ReplicatedStorage:WaitForChild('Fsys'))local load = Fsys.loadlocal Modules = { UIManager = load('UIManager'), ClientData = load('ClientData'), TableUtil = load('TableUtil'), RouterClient = load('RouterClient'), InventoryDB = load('InventoryDB'), animationManager = load('AnimationManager'), ColorThemeManager = load('ColorThemeManager')}local UIManager = Modules.UIManagerlocal ClientData = Modules.ClientDatalocal TableUtil = Modules.TableUtillocal RouterClient = Modules.RouterClientlocal InventoryDB = Modules.InventoryDBlocal ColorThemeManager = Modules.ColorThemeManagerlocal animationManager = Modules.animationManagerif UIManager.wait_for_initialization then UIManager:wait_for_initialization()else task.wait(2)endlocal Apps = { TradeApp = UIManager.apps.TradeApp, BackpackApp = UIManager.apps.BackpackApp, DialogApp = UIManager.apps.DialogApp, HintApp = UIManager.apps.HintApp, SettingsApp = UIManager.apps.SettingsApp, PlayerProfileApp = UIManager.apps.PlayerProfileApp, TradeHistoryApp = UIManager.apps.TradeHistoryApp, TradePreviewApp = UIManager.apps.TradePreviewApp}local TradeApp = Apps.TradeApplocal BackpackApp = Apps.BackpackApplocal HintApp = Apps.HintApplocal DialogApp = Apps.DialogApplocal TradeHistoryApp = Apps.TradeHistoryApplocal PlayerProfileApp = Apps.PlayerProfileApplocal NegotiationFrame = Players.LocalPlayer.PlayerGui.TradeApp.Frame.NegotiationFramelocal function FriendHighlight(FriendValue) NegotiationFrame.FriendHighlight.Visible = FriendValue NegotiationFrame.FriendBorder.Visible = FriendValue local PartnerFrame = NegotiationFrame.Header.PartnerFrame NegotiationFrame.Header.PartnerFrame.NameLabel.FriendLabel.Visible = FriendValue local ColorThemeManagerColor = ColorThemeManager.lookup(FriendValue and 'background' or 'saturated') NegotiationFrame.Header.PartnerFrame.ProfileIcon.ImageColor3 = ColorThemeManagerColor NegotiationFrame.Header.PartnerFrame.NameLabel.TextColor3 = ColorThemeManagerColor NegotiationFrame.Header.PartnerFrame.Icon.Visible = FriendValue NegotiationFrame.Header.PartnerFrame.Icon.Image = 'rbxassetid://84667805159408'endlocal downloader = load('DownloadClient')local petModels = {}local function getPetModel(kind) if petModels[kind] then return petModels[kind]:Clone() end local success, streamed = pcall(function() local promise = downloader.promise_download_copy('Pets', kind) if promise then return promise:expect() end return nil end) if success and streamed then petModels[kind] = streamed return streamed:Clone() else warn('Failed to download pet model for:', kind) return nil endendif not TradeApp then return end-- ==================== PET VALUE SYSTEM ====================local petDisplayNames = {}for category, items in pairs(InventoryDB) do if category == "pets" then for id, petinfo in pairs(items) do petDisplayNames[id] = petinfo.name end endend-- Fallback pet values when API fails (from winadopt.me/elvebredd)local fallbackPetValues = { ["Bat Dragon"] = {name = "Bat Dragon", ["rvalue - nopotion"] = 503, ["rvalue - fly&ride"] = 491, ["nvalue - fly&ride"] = 1280, ["mvalue - fly&ride"] = 3620}, ["Shadow Dragon"] = {name = "Shadow Dragon", ["rvalue - nopotion"] = 473, ["rvalue - fly&ride"] = 331, ["nvalue - fly&ride"] = 777, ["mvalue - fly&ride"] = 1950}, ["Giraffe"] = {name = "Giraffe", ["rvalue - nopotion"] = 230, ["rvalue - fly&ride"] = 220, ["nvalue - fly&ride"] = 536, ["mvalue - fly&ride"] = 1870}, ["Frost Dragon"] = {name = "Frost Dragon", ["rvalue - nopotion"] = 181, ["rvalue - fly&ride"] = 170, ["nvalue - fly&ride"] = 361, ["mvalue - fly&ride"] = 1050}, ["Owl"] = {name = "Owl", ["rvalue - nopotion"] = 144, ["rvalue - fly&ride"] = 142, ["nvalue - fly&ride"] = 389, ["mvalue - fly&ride"] = 1430}, ["Parrot"] = {name = "Parrot", ["rvalue - nopotion"] = 112.5, ["rvalue - fly&ride"] = 111.5, ["nvalue - fly&ride"] = 242, ["mvalue - fly&ride"] = 840}, ["Crow"] = {name = "Crow", ["rvalue - nopotion"] = 93, ["rvalue - fly&ride"] = 92.5, ["nvalue - fly&ride"] = 233, ["mvalue - fly&ride"] = 920}, ["Evil Unicorn"] = {name = "Evil Unicorn", ["rvalue - nopotion"] = 80.5, ["rvalue - fly&ride"] = 80, ["nvalue - fly&ride"] = 174, ["mvalue - fly&ride"] = 670}, ["African Wild Dog"] = {name = "African Wild Dog", ["rvalue - nopotion"] = 57, ["rvalue - fly&ride"] = 58, ["nvalue - fly&ride"] = 192, ["mvalue - fly&ride"] = 720}, ["Hedgehog"] = {name = "Hedgehog", ["rvalue - nopotion"] = 53.5, ["rvalue - fly&ride"] = 54, ["nvalue - fly&ride"] = 182, ["mvalue - fly&ride"] = 705}, ["Balloon Unicorn"] = {name = "Balloon Unicorn", ["rvalue - nopotion"] = 51.5, ["rvalue - fly&ride"] = 53, ["nvalue - fly&ride"] = 186, ["mvalue - fly&ride"] = 730}, ["Diamond Butterfly"] = {name = "Diamond Butterfly", ["rvalue - nopotion"] = 51, ["rvalue - fly&ride"] = 49, ["nvalue - fly&ride"] = 160, ["mvalue - fly&ride"] = 565}, ["Blazing Lion"] = {name
+local Services = {
+    Players = game:GetService('Players'),
+    ReplicatedStorage = game:GetService('ReplicatedStorage'),
+    RunService = game:GetService('RunService'),
+    UserInputService = game:GetService('UserInputService'),
+    TweenService = game:GetService('TweenService'),
+    HttpService = game:GetService('HttpService'),
+    Chat = game:GetService('Chat')
+}
+local Players = Services.Players
+local ReplicatedStorage = Services.ReplicatedStorage
+local RunService = Services.RunService
+local UserInputService = Services.UserInputService
+local TweenService = Services.TweenService
+local HttpService = Services.HttpService
+
+pcall(function()
+    setthreadidentity(2)
+end)
+
+-- COMPREHENSIVE HOOKS FOR FAKE PLAYERS - MUST BE FIRST
+local fakePlayerIds = {}
+_G.fakePlayerIds = fakePlayerIds
+
+-- Hook SettingsHelper early with better fake player detection
+task.spawn(function()
+    task.wait(0.1)
+    local SettingsHelper = require(ReplicatedStorage:WaitForChild('Fsys')).load('SettingsHelper')
+    local original_get_setting_server = SettingsHelper.get_setting_server
+
+    SettingsHelper.get_setting_server = function(player, settingName, ...)
+        if player and player.UserId then
+            if fakePlayerIds[player.UserId] then return false end
+            if not Players:GetPlayerByUserId(player.UserId) then return false end
+        end
+        local args = { ... }
+        local success, result = pcall(function()
+            return original_get_setting_server(player, settingName, table.unpack(args))
+        end)
+        if success then return result else return false end
+    end
+end)
+
+-- Hook FamilyHelper early
+task.spawn(function()
+    task.wait(0.1)
+    local FamilyHelper = require(ReplicatedStorage:WaitForChild('Fsys')).load('FamilyHelper')
+    local original_are_friends_family = FamilyHelper.are_friends_family
+    local original_is_my_friend_or_family = FamilyHelper.is_my_friend_or_family
+    local original_are_family_because_friends = FamilyHelper.are_family_because_friends
+    local original_is_my_family_because_friend = FamilyHelper.is_my_family_because_friend
+
+    FamilyHelper.are_friends_family = function(player1, player2)
+        if player1 and player2 and (fakePlayerIds[player1.UserId] or fakePlayerIds[player2.UserId]) then return false end
+        return original_are_friends_family(player1, player2)
+    end
+    FamilyHelper.is_my_friend_or_family = function(player)
+        if player and fakePlayerIds[player.UserId] then return false end
+        return original_is_my_friend_or_family(player)
+    end
+    FamilyHelper.are_family_because_friends = function(player1, player2)
+        if player1 and player2 and (fakePlayerIds[player1.UserId] or fakePlayerIds[player2.UserId]) then return false end
+        return original_are_family_because_friends(player1, player2)
+    end
+    FamilyHelper.is_my_family_because_friend = function(player)
+        if player and fakePlayerIds[player.UserId] then return false end
+        return original_is_my_family_because_friend(player)
+    end
+end)
+
+local Fsys = require(ReplicatedStorage:WaitForChild('Fsys'))
+local load = Fsys.load
+local Modules = {
+    UIManager = load('UIManager'),
+    ClientData = load('ClientData'),
+    TableUtil = load('TableUtil'),
+    RouterClient = load('RouterClient'),
+    InventoryDB = load('InventoryDB'),
+    animationManager = load('AnimationManager'),
+    ColorThemeManager = load('ColorThemeManager')
+}
+local UIManager = Modules.UIManager
+local ClientData = Modules.ClientData
+local TableUtil = Modules.TableUtil
+local RouterClient = Modules.RouterClient
+local InventoryDB = Modules.InventoryDB
+local ColorThemeManager = Modules.ColorThemeManager
+local animationManager = Modules.animationManager
+
+if UIManager.wait_for_initialization then
+    UIManager:wait_for_initialization()
+else
+    task.wait(2)
+end
+
+local Apps = {
+    TradeApp = UIManager.apps.TradeApp,
+    BackpackApp = UIManager.apps.BackpackApp,
+    DialogApp = UIManager.apps.DialogApp,
+    HintApp = UIManager.apps.HintApp,
+    SettingsApp = UIManager.apps.SettingsApp,
+    PlayerProfileApp = UIManager.apps.PlayerProfileApp,
+    TradeHistoryApp = UIManager.apps.TradeHistoryApp,
+    TradePreviewApp = UIManager.apps.TradePreviewApp
+}
+local TradeApp = Apps.TradeApp
+local BackpackApp = Apps.BackpackApp
+local HintApp = Apps.HintApp
+local DialogApp = Apps.DialogApp
+local TradeHistoryApp = Apps.TradeHistoryApp
+local PlayerProfileApp = Apps.PlayerProfileApp
+
+local NegotiationFrame = Players.LocalPlayer.PlayerGui.TradeApp.Frame.NegotiationFrame
+
+local function FriendHighlight(FriendValue)
+    NegotiationFrame.FriendHighlight.Visible = FriendValue
+    NegotiationFrame.FriendBorder.Visible = FriendValue
+    local PartnerFrame = NegotiationFrame.Header.PartnerFrame
+    NegotiationFrame.Header.PartnerFrame.NameLabel.FriendLabel.Visible = FriendValue
+    local ColorThemeManagerColor = ColorThemeManager.lookup(FriendValue and 'background' or 'saturated')
+    NegotiationFrame.Header.PartnerFrame.ProfileIcon.ImageColor3 = ColorThemeManagerColor
+    NegotiationFrame.Header.PartnerFrame.NameLabel.TextColor3 = ColorThemeManagerColor
+    NegotiationFrame.Header.PartnerFrame.Icon.Visible = FriendValue
+    NegotiationFrame.Header.PartnerFrame.Icon.Image = 'rbxassetid://84667805159408'
+end
+
+local downloader = load('DownloadClient')
+local petModels = {}
+
+local function getPetModel(kind)
+    if petModels[kind] then return petModels[kind]:Clone() end
+    local success, streamed = pcall(function()
+        local promise = downloader.promise_download_copy('Pets', kind)
+        if promise then return promise:expect() end
+        return nil
+    end)
+    if success and streamed then
+        petModels[kind] = streamed
+        return streamed:Clone()
+    else
+        warn('Failed to download pet model for:', kind)
+        return nil
+    end
+end
+
+if not TradeApp then return end
+
+-- ==================== PET VALUE SYSTEM ====================
+local petDisplayNames = {}
+for category, items in pairs(InventoryDB) do
+    if category == "pets" then
+        for id, petinfo in pairs(items) do
+            petDisplayNames[id] = petinfo.name
+        end
+    end
+end
+
+-- Fallback pet values when API fails (from winadopt.me/elvebredd)
+local fallbackPetValues = {
+    ["Bat Dragon"] = {name = "Bat Dragon", ["rvalue - nopotion"] = 503, ["rvalue - fly&ride"] = 491, ["nvalue - fly&ride"] = 1280, ["mvalue - fly&ride"] = 3620},
+    ["Shadow Dragon"] = {name = "Shadow Dragon", ["rvalue - nopotion"] = 473, ["rvalue - fly&ride"] = 331, ["nvalue - fly&ride"] = 777, ["mvalue - fly&ride"] = 1950},
+    ["Giraffe"] = {name = "Giraffe", ["rvalue - nopotion"] = 230, ["rvalue - fly&ride"] = 220, ["nvalue - fly&ride"] = 536, ["mvalue - fly&ride"] = 1870},
+    ["Frost Dragon"] = {name = "Frost Dragon", ["rvalue - nopotion"] = 181, ["rvalue - fly&ride"] = 170, ["nvalue - fly&ride"] = 361, ["mvalue - fly&ride"] = 1050},
+    ["Owl"] = {name = "Owl", ["rvalue - nopotion"] = 144, ["rvalue - fly&ride"] = 142, ["nvalue - fly&ride"] = 389, ["mvalue - fly&ride"] = 1430},
+    ["Parrot"] = {name = "Parrot", ["rvalue - nopotion"] = 112.5, ["rvalue - fly&ride"] = 111.5, ["nvalue - fly&ride"] = 242, ["mvalue - fly&ride"] = 840},
+    ["Crow"] = {name = "Crow", ["rvalue - nopotion"] = 93, ["rvalue - fly&ride"] = 92.5, ["nvalue - fly&ride"] = 233, ["mvalue - fly&ride"] = 920},
+    ["Evil Unicorn"] = {name = "Evil Unicorn", ["rvalue - nopotion"] = 80.5, ["rvalue - fly&ride"] = 80, ["nvalue - fly&ride"] = 174, ["mvalue - fly&ride"] = 670},
+    ["African Wild Dog"] = {name = "African Wild Dog", ["rvalue - nopotion"] = 57, ["rvalue - fly&ride"] = 58, ["nvalue - fly&ride"] = 192, ["mvalue - fly&ride"] = 720},
+    ["Hedgehog"] = {name = "Hedgehog", ["rvalue - nopotion"] = 53.5, ["rvalue - fly&ride"] = 54, ["nvalue - fly&ride"] = 182, ["mvalue - fly&ride"] = 705},
+    ["Balloon Unicorn"] = {name = "Balloon Unicorn", ["rvalue - nopotion"] = 51.5, ["rvalue - fly&ride"] = 53, ["nvalue - fly&ride"] = 186, ["mvalue - fly&ride"] = 730},
+    ["Diamond Butterfly"] = {name = "Diamond Butterfly", ["rvalue - nopotion"] = 51, ["rvalue - fly&ride"] = 49, ["nvalue - fly&ride"] = 160, ["mvalue - fly&ride"] = 565}
+}
